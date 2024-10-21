@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lascal"
+version = "0.1"
+description = "A library for for model calibration under label shift."
+authors = [
+    {name = "Teodora Popordanoska", email = "teodora.popordanoska@kuleuven.be"},
+    {name = "Gorjan Radevski", email = "gorjan.radevski@kuleuven.be"}
+]
+dependencies = []
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
