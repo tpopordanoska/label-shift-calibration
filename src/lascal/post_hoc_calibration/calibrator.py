@@ -11,7 +11,7 @@ from torch import nn, optim
 from tqdm.auto import tqdm
 
 from lascal.calibration_error import Ece, EceLabelShift
-from lascal.importance_weights import get_weights
+from lascal.importance_weights import get_importance_weights
 from lascal.post_hoc_calibration.methods import (
     Cpcs,
     Ets,
@@ -20,8 +20,8 @@ from lascal.post_hoc_calibration.methods import (
     VectorScalingModel,
     WenImbalanceAdapter15B,
 )
+from lascal.utils import initialize_overwatch
 from lascal.utils.constants import STEPS
-from lascal.utils.overwatch import initialize_overwatch
 from lascal.utils.softmax_clipper import SoftmaxClipper
 
 # Initialize Overwatch =>> Wraps `logging.Logger`
@@ -70,8 +70,8 @@ class Calibrator:
 
     def __init__(
         self,
-        experiment_path,
-        verbose: bool = True,
+        experiment_path: str = None,
+        verbose: bool = False,
         covariate: bool = False,
         criterion: str = "cross_entropy",
     ):
@@ -118,6 +118,7 @@ class Calibrator:
         }
 
     def head_to_tail(self, **kwargs):
+        assert self.experiment_path, "Experiment path is required for HeadToTail"
         # Get source and target
         train_agg = kwargs.pop("train_agg")
         source_agg = kwargs.pop("source_agg")
@@ -224,6 +225,7 @@ class Calibrator:
         }
 
     def cpcs(self, **kwargs):
+        assert self.experiment_path, "Experiment path is required for CPCS"
         # Get source and target
         source_agg = kwargs.pop("source_agg")
         target_agg = kwargs.pop("target_agg")
@@ -255,6 +257,7 @@ class Calibrator:
         }
 
     def transcal(self, **kwargs):
+        assert self.experiment_path, "Experiment path is required for TransCal"
         # Get source and target
         source_agg = kwargs.pop("source_agg")
         target_agg = kwargs.pop("target_agg")
@@ -520,7 +523,7 @@ class Calibrator:
             scaled_source_logits = source_agg["y_logits"] / temp
             scaled_target_logits = target_agg["y_logits"] / temp
             # Get weight
-            output = get_weights(
+            output = get_importance_weights(
                 valid_preds=scaled_source_logits.softmax(-1).numpy(),
                 valid_labels=y_source_ohe,
                 shifted_test_preds=scaled_target_logits.softmax(-1).numpy(),

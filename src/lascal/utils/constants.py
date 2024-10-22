@@ -25,5 +25,5 @@ CAL_METHODS = [
     "probability_matching",
     "temp_scale_target",
     "vector_scale_target",
-    "lascal"
+    "lascal",
 ]

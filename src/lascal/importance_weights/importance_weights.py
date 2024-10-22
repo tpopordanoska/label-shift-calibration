@@ -10,7 +10,6 @@ from abstention.label_shift import (
 )
 
 from lascal.importance_weights.elsa import EEImbalanceAdapter
-from lascal.utils.common import set_bins
 
 # cvxpy library throws warnings
 warnings.filterwarnings("ignore")
@@ -41,7 +40,7 @@ def compute_true_w(train_labels, test_labels, n_class=10):
     return torch.tensor(true_w)
 
 
-def get_weights(
+def get_importance_weights(
     valid_preds, valid_labels, shifted_test_preds, shifted_test_labels=None, method=None
 ):
     if method == "em":

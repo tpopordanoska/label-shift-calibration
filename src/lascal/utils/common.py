@@ -12,8 +12,7 @@ def format_ece(value, std=None):
     return f"${(100 * value):.2f}_{{\\pm {(100 * std):.2f}}}$"
 
 
-def set_random_seeds(config):
-    seed = config["SEED"]
+def set_random_seeds(seed): 
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)

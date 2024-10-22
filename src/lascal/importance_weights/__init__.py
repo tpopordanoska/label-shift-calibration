@@ -1,1 +1,1 @@
-from .get_weights import compute_true_w, get_weights
+from .importance_weights import compute_true_w, get_importance_weights

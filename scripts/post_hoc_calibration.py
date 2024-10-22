@@ -7,65 +7,14 @@ from os.path import join as pjoin
 import numpy as np
 import torch
 
-from lascal.calibration_error import Ece, EceLabelShift
-from lascal.importance_weights import get_weights
-from lascal.post_hoc_calibration import Calibrator
+from lascal import BootstrapMeanVarEstimator, Calibrator, Ece
+from lascal.utils import initialize_overwatch
 from lascal.utils.common import format_ece, load_experiment_config, set_random_seeds
 from lascal.utils.constants import CAL_METHODS
-from lascal.utils.overwatch import initialize_overwatch
-from lascal.utils.softmax_clipper import SoftmaxClipper
 from lascal.utils.subsampler import DatasetSubsampler
-from lascal.utils.variance import BootstrapMeanVarEstimator
 
 # Initialize Overwatch =>> Wraps `logging.Logger`
 overwatch = initialize_overwatch(__name__)
-
-
-class EceLabelShiftWrapper:
-
-    def __init__(self, classwise: bool = True, adaptive_bins: bool = True, p: int = 2):
-        self.classwise = classwise
-        self.estimator = EceLabelShift(
-            classwise=classwise, adaptive_bins=adaptive_bins, p=p
-        )
-        self.softmax_clipper = SoftmaxClipper()
-
-    @torch.no_grad()
-    def __call__(
-        self, logits_source, labels_source, logits_target, labels_target, **kwargs
-    ):
-        # Transform for weight
-        fx_source, fx_target = self.softmax_clipper(
-            val_softmax_preds=logits_source.softmax(-1).numpy(),
-            test_softmax_preds=logits_target.softmax(-1).numpy(),
-            method="rlls-hard",
-        )
-        y_source_ohe = self.convert_labels_to_one_hot(
-            logits=logits_source, labels=labels_source
-        )
-        y_target_ohe = self.convert_labels_to_one_hot(
-            logits=logits_target, labels=labels_target
-        )
-        output = get_weights(
-            fx_source,
-            y_source_ohe,
-            fx_target,
-            y_target_ohe,
-            method="rlls-hard",
-        )
-        ece = self.estimator(
-            logits_source=logits_source,
-            labels_source=labels_source,
-            logits_target=logits_target,
-            weight=output["weights"],
-        )
-
-        return ece
-
-    @staticmethod
-    def convert_labels_to_one_hot(logits, labels):
-        num_classes = logits.shape[1]
-        return np.eye(num_classes)[labels.numpy()].astype(float)
 
 
 def report_model_result(args, path_format, dataset_name, model_name, imbalance_factor):
@@ -80,7 +29,7 @@ def report_model_result(args, path_format, dataset_name, model_name, imbalance_f
     )
     config = load_experiment_config(dir_path)
     # Set seeds to ensure the same source dataset
-    set_random_seeds(config)
+    set_random_seeds(config["SEED"])
 
     calibrator = Calibrator(
         experiment_path=dir_path,
@@ -102,7 +51,7 @@ def report_model_result(args, path_format, dataset_name, model_name, imbalance_f
     # Source predictions
     org_source_agg = json.load(open(pjoin(dir_path, "source_agg.json")))
     org_source_agg = {k: torch.tensor(v) for k, v in org_source_agg.items()}
-    
+
     # Target predictions
     target_type = "_cov_" if args.covariate else "_"
     org_target_agg = json.load(open(pjoin(dir_path, f"target{target_type}agg.json")))
@@ -120,11 +69,15 @@ def report_model_result(args, path_format, dataset_name, model_name, imbalance_f
         dataset_name=dataset_name, source_agg=org_source_agg, target_agg=org_target_agg
     )
 
-    results = {method_name: 0 for method_name in CAL_METHODS if method_name not in args.exclude_methods}
+    results = {
+        method_name: 0
+        for method_name in CAL_METHODS
+        if method_name not in args.exclude_methods
+    }
     for method_name in CAL_METHODS:
         if method_name in args.exclude_methods:
             continue
-        
+
         source_agg, target_agg, train_agg = (
             deepcopy(subsampled_source_agg),
             deepcopy(subsampled_target_agg),
@@ -148,7 +101,7 @@ def report_model_result(args, path_format, dataset_name, model_name, imbalance_f
             results[method_name] = mean
         except np.linalg.LinAlgError:
             string += f"& -- "
-        
+
     string += "\\\\"
 
     print(string)
@@ -161,12 +114,18 @@ def report_results(args, imbalance_factors, dataset_names, model_names, path_for
     overwatch.info(f"Using Covariate shift data: {args.covariate}")
     for imbalance_factor in imbalance_factors:
         for dataset_name in dataset_names:
-            dataset_info = f"Dataset name: {dataset_name} || Imbalance Factor: {imbalance_factor}"
+            dataset_info = (
+                f"Dataset name: {dataset_name} || Imbalance Factor: {imbalance_factor}"
+            )
             overwatch.info(dataset_info)
 
             # Print header
             header = "Model "
-            all_results = {method_name: 0 for method_name in CAL_METHODS if method_name not in args.exclude_methods}
+            all_results = {
+                method_name: 0
+                for method_name in CAL_METHODS
+                if method_name not in args.exclude_methods
+            }
             for method_name in CAL_METHODS:
                 if method_name in args.exclude_methods:
                     continue
@@ -190,7 +149,9 @@ def report_results(args, imbalance_factors, dataset_names, model_names, path_for
             for method_name in CAL_METHODS:
                 if method_name in args.exclude_methods:
                     continue
-                macro_average_latex += f"& {format_ece(all_results[method_name] / len(model_names), 0)} "
+                macro_average_latex += (
+                    f"& {format_ece(all_results[method_name] / len(model_names), 0)} "
+                )
             macro_average_latex += "\\\\"
             print(macro_average_latex)
 
