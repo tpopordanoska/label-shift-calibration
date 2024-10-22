@@ -10,8 +10,7 @@ from sklearn.isotonic import IsotonicRegression
 from torch import nn, optim
 from tqdm.auto import tqdm
 
-from lascal.calibration_error import Ece, EceLabelShift
-from lascal.importance_weights import get_importance_weights
+from lascal import Ece, EceLabelShift, get_importance_weights
 from lascal.post_hoc_calibration.methods import (
     Cpcs,
     Ets,
@@ -20,9 +19,8 @@ from lascal.post_hoc_calibration.methods import (
     VectorScalingModel,
     WenImbalanceAdapter15B,
 )
-from lascal.utils import initialize_overwatch
+from lascal.utils import SoftmaxClipper, initialize_overwatch
 from lascal.utils.constants import STEPS
-from lascal.utils.softmax_clipper import SoftmaxClipper
 
 # Initialize Overwatch =>> Wraps `logging.Logger`
 overwatch = initialize_overwatch(__name__)
@@ -83,6 +81,7 @@ class Calibrator:
         self.softmax_clipper = SoftmaxClipper()
 
     def calibrate(self, method_name: str, source_agg, target_agg, train_agg):
+        # Requires a method name to calibrate with, and source, target, and train aggregates
         name2method = {
             "uncal": self.uncal,
             "head_to_tail": self.head_to_tail,
@@ -506,7 +505,7 @@ class Calibrator:
         p = kwargs.pop("p", 2)
         classwise = kwargs.pop("classwise", True)
 
-        criterion = EceLabelShift(
+        ece_criterion = EceLabelShift(
             p=p, n_bins=15, adaptive_bins=True, classwise=classwise
         )
         optim_temp = -1
@@ -520,21 +519,21 @@ class Calibrator:
             y_source_ohe = np.eye(num_classes)[source_agg["y_true"].numpy()].astype(
                 float
             )
-            scaled_source_logits = source_agg["y_logits"] / temp
-            scaled_target_logits = target_agg["y_logits"] / temp
+            scaled_logits_source = source_agg["y_logits"] / temp
+            scaled_logits_target = target_agg["y_logits"] / temp
             # Get weight
             output = get_importance_weights(
-                valid_preds=scaled_source_logits.softmax(-1).numpy(),
+                valid_preds=scaled_logits_source.softmax(-1).numpy(),
                 valid_labels=y_source_ohe,
-                shifted_test_preds=scaled_target_logits.softmax(-1).numpy(),
+                shifted_test_preds=scaled_logits_target.softmax(-1).numpy(),
                 method=weights_method,
             )
             # Measure loss
-            loss = criterion(
-                scaled_source_logits,
-                source_agg["y_true"],
-                scaled_target_logits,
-                output["weights"],
+            loss = ece_criterion(
+                logits_source=scaled_logits_source,
+                labels_source=source_agg["y_true"],
+                logits=scaled_logits_target,
+                weights=output["weights"],
             ).mean()
             if loss < best_loss:
                 best_loss = loss

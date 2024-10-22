@@ -92,9 +92,9 @@ class EceLabelShift(nn.Module):
 
         return tmp_sum / len(confidences_target)
 
-    def forward(self, logits_source, labels_source, logits_target, weight, **kwargs):
+    def forward(self, *, logits, logits_source, labels_source, weights, **kwargs):
         softmaxes_source = F.softmax(logits_source, dim=1)
-        softmaxes_target = F.softmax(logits_target, dim=1)
+        softmaxes_target = F.softmax(logits, dim=1)
         if self.classwise:
             num_classes = softmaxes_source.shape[1]
             per_class_ce = None
@@ -108,7 +108,7 @@ class EceLabelShift(nn.Module):
                     class_confidences_source,
                     class_confidences_target,
                     labels_in_source,
-                    weight[i],
+                    weights[i],
                 )
                 if i == 0:
                     per_class_ce = class_ece
@@ -126,7 +126,7 @@ class EceLabelShift(nn.Module):
                 confidences_target,
                 labels_source,
                 predictions_source,
-                weight,
+                weights,
             )
 
             return ece

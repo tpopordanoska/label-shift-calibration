@@ -63,15 +63,15 @@ class Ece(nn.Module):
 
         return tmp_sum / len(confidences) if self.version == "our" else tmp_sum
 
-    def forward(self, logits_target, labels_target, **kwargs):
-        softmaxes = F.softmax(logits_target, dim=1)
+    def forward(self, *, logits, labels, **kwargs):
+        softmaxes = F.softmax(logits, dim=1)
 
         if self.classwise:
             num_classes = softmaxes.shape[1]
             per_class_ce = None
             for i in range(num_classes):
                 class_confidences = softmaxes[:, i]
-                labels_in_class = labels_target.eq(i)
+                labels_in_class = labels.eq(i)
                 self.set_bins(class_confidences)
 
                 class_ece = self.get_ece(class_confidences, labels_in_class)
@@ -83,7 +83,7 @@ class Ece(nn.Module):
 
         else:
             confidences, predictions = torch.max(softmaxes, 1)
-            accuracies = predictions.eq(labels_target)
+            accuracies = predictions.eq(labels)
             self.set_bins(confidences)
             ece = self.get_ece(confidences, accuracies)
 

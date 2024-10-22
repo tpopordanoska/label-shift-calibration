@@ -6,13 +6,13 @@ import torch
 import yaml
 
 
-def format_ece(value, std=None):
+def format_mean_std(value, std=None):
     if not std:
         return f"${(100 * value):.2f}$"
     return f"${(100 * value):.2f}_{{\\pm {(100 * std):.2f}}}$"
 
 
-def set_random_seeds(seed): 
+def set_random_seeds(seed):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)

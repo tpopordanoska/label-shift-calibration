@@ -332,6 +332,7 @@ class VectorScalingModel(nn.Module):
 
 class WenImbalanceAdapter15B(AbstractImbalanceAdapter):
     def __init__(self, calibrator_factory=None, verbose=False):
+        # Code taken from here: https://github.com/hongwei-wen/CPMCN-for-label-shift
         self.calibrator_factory = calibrator_factory
         self.verbose = verbose
 
@@ -374,6 +375,9 @@ class WenImbalanceAdapter15B(AbstractImbalanceAdapter):
                 rdl = rng.choice(num_classes, size=1, p=probl)[0]
                 # calculate Pi_P and Pi_Q w.r.t. w
                 pip = prob_classwise_source
+                # If zero values in pip, raise ValueError
+                if np.any(pip == 0):
+                    raise ValueError("Zero values in pip!")
                 # calculate Ai and Bi
                 Ai = (
                     tofit_initial_posterior_probs[:, rdl]

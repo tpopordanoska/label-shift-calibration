@@ -41,13 +41,13 @@ class DatasetSubsampler:
             indices = classid2indices[class_idx]
             sampled_source_indices.extend(indices)
 
-        source_logits = source_agg["y_logits"][sampled_source_indices][:, keep_classes]
+        logits_source = source_agg["y_logits"][sampled_source_indices][:, keep_classes]
         source_labels = self.labels_remmaping(
             source_agg["y_true"][sampled_source_indices], keep_classes=keep_classes
         )
         # Subsample source agg
         source_agg = {
-            "y_logits": source_logits,
+            "y_logits": logits_source,
             "y_true": source_labels,
             "source_indices": sampled_source_indices,
         }
@@ -108,12 +108,12 @@ class DatasetSubsampler:
             indices = classid2indices[class_idx]
             sampled_source_indices.extend(indices)
         # Subsample source agg
-        source_logits = source_agg["y_logits"][sampled_source_indices][:, keep_classes]
+        logits_source = source_agg["y_logits"][sampled_source_indices][:, keep_classes]
         source_labels = self.labels_remmaping(
             source_agg["y_true"][sampled_source_indices], keep_classes=keep_classes
         )
         subsampled_source_agg = {
-            "y_logits": source_logits,
+            "y_logits": logits_source,
             "y_true": source_labels,
             "source_indices": sampled_source_indices,
         }

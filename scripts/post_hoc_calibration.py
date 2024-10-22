@@ -9,7 +9,11 @@ import torch
 
 from lascal import BootstrapMeanVarEstimator, Calibrator, Ece
 from lascal.utils import initialize_overwatch
-from lascal.utils.common import format_ece, load_experiment_config, set_random_seeds
+from lascal.utils.common import (
+    format_mean_std,
+    load_experiment_config,
+    set_random_seeds,
+)
 from lascal.utils.constants import CAL_METHODS
 from lascal.utils.subsampler import DatasetSubsampler
 
@@ -92,14 +96,12 @@ def report_model_result(args, path_format, dataset_name, model_name, imbalance_f
                 train_agg=train_agg,
             )
             mean, var = bootstrap_estimator(
-                logits_source=calibrated_agg["source"]["y_logits"],
-                labels_source=calibrated_agg["source"]["y_true"],
-                logits_target=calibrated_agg["target"]["y_logits"],
-                labels_target=calibrated_agg["target"]["y_true"],
+                logits=calibrated_agg["target"]["y_logits"],
+                labels=calibrated_agg["target"]["y_true"],
             )
-            string += f"& {format_ece(mean, np.sqrt(var))} "
+            string += f"& {format_mean_std(mean, np.sqrt(var))} "
             results[method_name] = mean
-        except np.linalg.LinAlgError:
+        except (np.linalg.LinAlgError, ValueError):
             string += f"& -- "
 
     string += "\\\\"
@@ -149,9 +151,7 @@ def report_results(args, imbalance_factors, dataset_names, model_names, path_for
             for method_name in CAL_METHODS:
                 if method_name in args.exclude_methods:
                     continue
-                macro_average_latex += (
-                    f"& {format_ece(all_results[method_name] / len(model_names), 0)} "
-                )
+                macro_average_latex += f"& {format_mean_std(all_results[method_name] / len(model_names), 0)} "
             macro_average_latex += "\\\\"
             print(macro_average_latex)
 
