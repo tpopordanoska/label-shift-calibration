@@ -10,11 +10,14 @@ class BootstrapMeanVarEstimator:
         self.num_bootstrap_samples = num_bootstrap_samples
         self.reported = reported
 
-    def get_bootstrap_sample(self, logits, labels):
+    def get_bootstrap_sample(self, logits, labels=None):
         sample_size = len(logits)
         indices = np.random.choice(sample_size, size=sample_size, replace=True)
         bootstrap_logits = logits[indices]
-        bootstrap_labels = labels[indices]
+        if labels is not None:
+            bootstrap_labels = labels[indices]
+        else:
+            bootstrap_labels = None
 
         return bootstrap_logits, bootstrap_labels
 
@@ -29,11 +32,11 @@ class BootstrapMeanVarEstimator:
             for key in ["logits", "logits_source", "labels_source", "weights"]:
                 assert key in kwargs
             logits = kwargs["logits"]
+            labels = kwargs.pop("labels", None)
             logits_source = kwargs["logits_source"]
             labels_source = kwargs["labels_source"]
             weights = kwargs["weights"]
-            labels = None
-        
+
         # Calculate bootstrap estimates
         bootstrap_estimates = torch.zeros(self.num_bootstrap_samples)
         for i in range(self.num_bootstrap_samples):
@@ -46,7 +49,7 @@ class BootstrapMeanVarEstimator:
                 labels=bootstrap_labels_target,
                 logits_source=logits_source,
                 labels_source=labels_source,
-                weigths=weights
+                weights=weights,
             )
             if self.estimator.classwise:
                 if self.reported == "mean":
