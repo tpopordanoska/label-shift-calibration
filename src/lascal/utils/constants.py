@@ -1,5 +1,7 @@
 EPS = 1e-7
 STEPS = 100
+MAX_TEMP = 20.0
+MIN_TEMP = 0.1
 
 CAL_METHODS = [
     "uncal",

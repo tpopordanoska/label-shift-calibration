@@ -94,6 +94,7 @@ def report_model_result(args, path_format, dataset_name, model_name, imbalance_f
                 source_agg=source_agg,
                 target_agg=target_agg,
                 train_agg=train_agg,
+                classwise=not args.calibrate_top_label,
             )
             mean, var = bootstrap_estimator(
                 logits=calibrated_agg["target"]["y_logits"],
@@ -102,7 +103,7 @@ def report_model_result(args, path_format, dataset_name, model_name, imbalance_f
             string += f"& {format_mean_std(mean, np.sqrt(var))} "
             results[method_name] = mean
         except (np.linalg.LinAlgError, ValueError):
-            string += f"& -- "
+            string += "& -- "
 
     string += "\\\\"
 
@@ -147,13 +148,13 @@ def report_results(args, imbalance_factors, dataset_names, model_names, path_for
                     all_results[method_name] += results[method_name]
 
             # Print macro-average per method
-            macro_average_latex = "\\textit{Macro average} "
+            macro_average = "\\textit{Macro average} "
             for method_name in CAL_METHODS:
                 if method_name in args.exclude_methods:
                     continue
-                macro_average_latex += f"& {format_mean_std(all_results[method_name] / len(model_names), 0)} "
-            macro_average_latex += "\\\\"
-            print(macro_average_latex)
+                macro_average += f"& {format_mean_std(all_results[method_name] / len(model_names), 0)} "
+            macro_average += "\\\\"
+            print(macro_average)
 
 
 def main():

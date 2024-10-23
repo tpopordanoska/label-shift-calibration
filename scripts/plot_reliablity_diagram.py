@@ -14,14 +14,17 @@ from matplotlib.lines import Line2D
 from netcal.presentation import ReliabilityDiagram
 
 from lascal import Calibrator, Ece
+from lascal.utils import initialize_overwatch
 
-plt.close()
 mpl.rcParams.update(mpl.rcParamsDefault)
 plt.style.use("ggplot")
 sns.set_palette("tab10")
 
+# Initialize Overwatch =>> Wraps `logging.Logger`
+overwatch = initialize_overwatch(__name__)
+
 # https://github.com/nschloe/tikzplotlib/issues/567#issuecomment-1370846461
-Line2D._us_dashSeq    = property(lambda self: self._dash_pattern[1])
+Line2D._us_dashSeq = property(lambda self: self._dash_pattern[1])
 Line2D._us_dashOffset = property(lambda self: self._dash_pattern[0])
 
 
@@ -60,10 +63,10 @@ def plot_and_save_diagram(target_agg, ece_value, title):
 
     tikzplotlib.clean_figure()
     tikzplotlib_fix_ncols(plt_d)
-    # tikzplotlib.save(
-    #     os.path.join("figs", f"reliability_diagram_{title}.tex"),
-    #     extra_groupstyle_parameters=["vertical sep=2cm"],
-    # )
+    tikzplotlib.save(
+        os.path.join("figs", f"reliability_diagram_{title}.tex"),
+        extra_groupstyle_parameters=["vertical sep=2cm"],
+    )
     plt.tight_layout()
     plt_d.show()
 
@@ -75,9 +78,8 @@ def plot_reliability_diagram(args):
 
     dir_path = args.experiment_path
     if not os.path.exists(dir_path) or not os.path.isdir(dir_path):
-        print(f"Path {dir_path} does not exist!")
+        overwatch.error(f"Path {dir_path} does not exist!")
 
-    # Uncalibrated model
     try:
         train_agg = json.load(open(pjoin(dir_path, "train_agg.json")))
         train_agg = {k: torch.tensor(v) for k, v in train_agg.items()}
@@ -88,6 +90,7 @@ def plot_reliability_diagram(args):
     target_agg = json.load(open(pjoin(dir_path, "target_agg.json")))
     target_agg = {k: torch.tensor(v) for k, v in target_agg.items()}
 
+    # Uncalibrated model
     ece_value = ece_estimator(
         logits=target_agg["y_logits"], labels=target_agg["y_true"]
     ).item()
@@ -97,7 +100,7 @@ def plot_reliability_diagram(args):
 
     calibrator = Calibrator(experiment_path=dir_path)
     for method_name in ["temp_scale_source", "head_to_tail"]:
-        print("Method: ", method_name)
+        overwatch.info("Method: ", method_name)
         calibrated_agg = calibrator.calibrate(
             method_name=method_name,
             source_agg=source_agg,

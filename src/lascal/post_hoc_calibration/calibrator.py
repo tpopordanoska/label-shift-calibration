@@ -20,7 +20,7 @@ from lascal.post_hoc_calibration.methods import (
     WenImbalanceAdapter15B,
 )
 from lascal.utils import SoftmaxClipper, initialize_overwatch
-from lascal.utils.constants import STEPS
+from lascal.utils.constants import MAX_TEMP, MIN_TEMP, STEPS
 
 # Initialize Overwatch =>> Wraps `logging.Logger`
 overwatch = initialize_overwatch(__name__)
@@ -80,7 +80,7 @@ class Calibrator:
         self.criterion = Ece() if criterion == "ece" else nn.CrossEntropyLoss()
         self.softmax_clipper = SoftmaxClipper()
 
-    def calibrate(self, method_name: str, source_agg, target_agg, train_agg):
+    def calibrate(self, method_name: str, source_agg, target_agg, train_agg, **kwargs):
         # Requires a method name to calibrate with, and source, target, and train aggregates
         name2method = {
             "uncal": self.uncal,
@@ -98,7 +98,7 @@ class Calibrator:
             "lascal": self.lascal,
         }
         return name2method[method_name](
-            source_agg=source_agg, target_agg=target_agg, train_agg=train_agg
+            source_agg=source_agg, target_agg=target_agg, train_agg=train_agg, **kwargs
         )
 
     def uncal(self, **kwargs):
@@ -261,7 +261,7 @@ class Calibrator:
         source_agg = kwargs.pop("source_agg")
         target_agg = kwargs.pop("target_agg")
         # Optimal temp on source
-        optim_temp_source = self.temperature_scale(
+        optim_temp_source = self._temperature_scale(
             source_agg["y_logits"], source_agg["y_true"]
         )
         _, source_confidence, error_source_val = cal_acc_error(
@@ -298,7 +298,7 @@ class Calibrator:
             },
         }
 
-    def vector_scale(self, logits, labels):
+    def _vector_scale(self, logits, labels):
         # Get calibration model and optimizer
         cal_model = VectorScalingModel(num_classes=logits.shape[1])
         optimizer = optim.SGD(cal_model.parameters(), lr=0.01, momentum=0.9)
@@ -317,7 +317,7 @@ class Calibrator:
         source_agg = kwargs.pop("source_agg")
         target_agg = kwargs.pop("target_agg")
 
-        optim_model = self.vector_scale(
+        optim_model = self._vector_scale(
             logits=source_agg["y_logits"], labels=source_agg["y_true"]
         )
         scaled_target_logits = optim_model(target_agg["y_logits"])
@@ -338,7 +338,7 @@ class Calibrator:
         source_agg = kwargs.pop("source_agg")
         target_agg = kwargs.pop("target_agg")
 
-        optim_model = self.vector_scale(
+        optim_model = self._vector_scale(
             logits=target_agg["y_logits"], labels=target_agg["y_true"]
         )
 
@@ -355,11 +355,11 @@ class Calibrator:
             },
         }
 
-    def temperature_scale(self, logits, labels):
+    def _temperature_scale(self, logits, labels):
         optim_temp = -1
         best_loss = torch.finfo(torch.float).max
         for temp in tqdm(
-            torch.linspace(0.1, 20.0, steps=STEPS), disable=not self.verbose
+            torch.linspace(MIN_TEMP, MAX_TEMP, steps=STEPS), disable=not self.verbose
         ):
             loss = self.criterion((logits / temp), labels).mean()
             if loss < best_loss:
@@ -372,7 +372,7 @@ class Calibrator:
         # Get source and target
         source_agg = kwargs.pop("source_agg")
         target_agg = kwargs.pop("target_agg")
-        optim_temp = self.temperature_scale(
+        optim_temp = self._temperature_scale(
             logits=source_agg["y_logits"], labels=source_agg["y_true"]
         )
 
@@ -395,7 +395,7 @@ class Calibrator:
         source_agg = kwargs.pop("source_agg")
         target_agg = kwargs.pop("target_agg")
         # Get optimal temperature
-        optim_temp = self.temperature_scale(
+        optim_temp = self._temperature_scale(
             logits=target_agg["y_logits"], labels=target_agg["y_true"]
         )
 
@@ -512,7 +512,7 @@ class Calibrator:
         best_loss = torch.finfo(torch.float).max
 
         for temp in tqdm(
-            torch.linspace(0.1, 20.0, steps=STEPS), disable=not self.verbose
+            torch.linspace(MIN_TEMP, MAX_TEMP, steps=STEPS), disable=not self.verbose
         ):
             # Prepare source labels
             num_classes = source_agg["y_logits"].size(1)
