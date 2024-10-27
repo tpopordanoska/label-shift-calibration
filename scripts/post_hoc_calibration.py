@@ -115,6 +115,7 @@ def report_results(args, imbalance_factors, dataset_names, model_names, path_for
     overwatch.info(f"Reporting Top-Label: {args.report_top_label}")
     overwatch.info(f"Calibrating Top-Label: {args.calibrate_top_label}")
     overwatch.info(f"Using Covariate shift data: {args.covariate}")
+    overwatch.info(f"Criterion: {args.criterion}")
     for imbalance_factor in imbalance_factors:
         for dataset_name in dataset_names:
             dataset_info = (

@@ -63,6 +63,12 @@ def get_weight_feature_space(train_feature, target_feature, source_feature, **kw
 
     return weight
 
+class CrossEntropy(nn.Module):
+    def __init__(self):
+        super(CrossEntropy, self).__init__()
+
+    def forward(self, logits, labels):
+        return nn.CrossEntropyLoss()(logits, labels)
 
 class Calibrator:
 
@@ -77,7 +83,7 @@ class Calibrator:
         self.verbose = verbose
         self.target_name = "target" if not covariate else "target_cov"
         assert criterion in ["cross_entropy", "ece"], f"Invalid: {criterion}"
-        self.criterion = Ece() if criterion == "ece" else nn.CrossEntropyLoss()
+        self.criterion = Ece() if criterion == "ece" else CrossEntropy()
         self.softmax_clipper = SoftmaxClipper()
 
     def calibrate(self, method_name: str, source_agg, target_agg, train_agg, **kwargs):
@@ -361,7 +367,7 @@ class Calibrator:
         for temp in tqdm(
             torch.linspace(MIN_TEMP, MAX_TEMP, steps=STEPS), disable=not self.verbose
         ):
-            loss = self.criterion((logits / temp), labels).mean()
+            loss = self.criterion(logits=(logits / temp), labels=labels).mean()
             if loss < best_loss:
                 best_loss = loss
                 optim_temp = temp
