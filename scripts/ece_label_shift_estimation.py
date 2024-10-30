@@ -54,12 +54,14 @@ def print_classwise_table(args):
     weights_methods = ["rlls-hard", "elsa", "em-bcts", "bbse-hard"]
     # Prepare Std estimators
     ece_estimator = BootstrapMeanVarEstimator(
-        estimator=Ece(adaptive_bins=True, n_bins=args.n_bins, p=args.p, classwise=True)
+        estimator=Ece(adaptive_bins=True, n_bins=args.n_bins, p=args.p, classwise=True),
+        reported=args.reported,
     )
     ece_label_shift_estimator = BootstrapMeanVarEstimator(
         estimator=EceLabelShift(
             adaptive_bins=True, n_bins=args.n_bins, p=args.p, classwise=True
-        )
+        ),
+        reported=args.reported,
     )
 
     softmax_clipper = SoftmaxClipper()
@@ -91,14 +93,14 @@ def print_classwise_table(args):
             string += f" & {format_mean_std(acc_target, acc_target_std_dev)}"
 
             ### CE source & target ###
-            ece_source, variace_source = ece_estimator(
+            ece_source, variance_source = ece_estimator(
                 logits=source_logits, labels=source_labels
             )
             ece_target, variance_target = ece_estimator(
                 logits=target_logits, labels=target_labels
             )
-            string += f" & {format_mean_std(ece_source, variace_source)}"
-            string += f" & {format_mean_std(ece_target, variance_target)}"
+            string += f" & {format_mean_std(ece_source, np.sqrt(variance_source))}"
+            string += f" & {format_mean_std(ece_target, np.sqrt(variance_target))}"
 
             ### CE target (w*) ###
             y_source_ohe = convert_labels_to_one_hot(source_logits, source_labels)
@@ -117,7 +119,7 @@ def print_classwise_table(args):
                     weights=true_weight,
                 )
             )
-            string += f" & {format_mean_std(ece_label_shift_gt_weights, variance_label_shift_gt_weight)}"
+            string += f" & {format_mean_std(ece_label_shift_gt_weights, np.sqrt(variance_label_shift_gt_weight))}"
 
             ### CE target (hat(w)}) ###
             for weights_method in weights_methods:
@@ -139,7 +141,7 @@ def print_classwise_table(args):
                     logits=target_logits,
                     weights=torch.tensor(output["weights"]),
                 )
-                string += f" & {format_mean_std(ece_label_shift, variance_label_shift)}"
+                string += f" & {format_mean_std(ece_label_shift, np.sqrt(variance_label_shift))}"
 
             string += " \\\\"
             print(string)
@@ -150,6 +152,7 @@ def main():
     parser.add_argument("--experiments_path", type=str, required=True)
     parser.add_argument("--imbalance_factor", type=str, default=0.5)
     parser.add_argument("--p", type=int, default=2)
+    parser.add_argument("--reported", type=str, default="mean")
     parser.add_argument("--n_bins", type=int, default=15)
     args = parser.parse_args()
     print_classwise_table(args)
