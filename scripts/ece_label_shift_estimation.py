@@ -56,12 +56,14 @@ def print_classwise_table(args):
     ece_estimator = BootstrapMeanVarEstimator(
         estimator=Ece(adaptive_bins=True, n_bins=args.n_bins, p=args.p, classwise=True),
         reported=args.reported,
+        num_bootstrap_samples=args.num_bootstrap_samples,
     )
     ece_label_shift_estimator = BootstrapMeanVarEstimator(
         estimator=EceLabelShift(
             adaptive_bins=True, n_bins=args.n_bins, p=args.p, classwise=True
         ),
         reported=args.reported,
+        num_bootstrap_samples=args.num_bootstrap_samples,
     )
 
     softmax_clipper = SoftmaxClipper()
@@ -153,6 +155,7 @@ def main():
     parser.add_argument("--imbalance_factor", type=str, default=0.5)
     parser.add_argument("--p", type=int, default=2)
     parser.add_argument("--reported", type=str, default="mean")
+    parser.add_argument("--num_bootstrap_samples", type=int, default=100)
     parser.add_argument("--n_bins", type=int, default=15)
     args = parser.parse_args()
     print_classwise_table(args)
